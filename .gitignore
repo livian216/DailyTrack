@@ -1,0 +1,81 @@
+# -----------------------------
+# OS / Editor
+# -----------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# -----------------------------
+# Python
+# -----------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# -----------------------------
+# Build / Packaging outputs
+# -----------------------------
+build/
+dist/
+*.spec
+# 安装包输出目录默认忽略；但允许保留 exe 用于发布版本
+installer_output/*
+!installer_output/
+!installer_output/*.exe
+
+# -----------------------------
+# Local runtime data (privacy)
+# -----------------------------
+# App local config (contains user path choices)
+app_config.json
+
+# Local test/debug artifacts
+.test_tmp/
+tmp_test.db
+tmp_test.db-journal
+*.log
+
+# SQLite local files (if created in repo accidentally)
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Exports / backups if generated under repo by mistake
+exports/
+backups/
+
+# -----------------------------
+# Secrets / credentials
+# -----------------------------
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.crt
+
+# -----------------------------
+# User documents / notes
+# -----------------------------
+*.tmp
+*.bak
+*.orig
