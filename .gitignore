@@ -34,10 +34,8 @@ env/
 build/
 dist/
 *.spec
-# 安装包输出目录默认忽略；但允许保留 exe 用于发布版本
-installer_output/*
-!installer_output/
-!installer_output/*.exe
+# 安装包输出目录全部忽略（包含 exe）
+installer_output/
 
 # -----------------------------
 # Local runtime data (privacy)
