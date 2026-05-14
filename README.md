@@ -141,7 +141,3 @@ installer_output\DailyTrack_Setup_v1.0.0.exe
 
 ### Q3: 文本太长显示不全
 可将鼠标悬停在单元格上查看完整内容 tooltip。
-
-## 许可证
-
-当前仓库未附带开源许可证。若要公开发布，请补充 `LICENSE` 文件后再推送。
