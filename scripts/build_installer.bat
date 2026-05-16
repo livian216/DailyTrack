@@ -16,5 +16,5 @@ if %errorlevel% neq 0 (
   echo [ERROR] Inno Setup compile failed.
   exit /b 1
 )
-echo [OK] Installer output: installer_output\DailyTrack_Setup_v1.1.0.exe
+echo [OK] Installer output: installer_output\DailyTrack_Setup_v1.1.1.exe
 

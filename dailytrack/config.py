@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 APP_NAME = 'DailyTrack'
-APP_VERSION = '1.1.0'
+APP_VERSION = '1.1.1'
 PUBLISHER = 'DailyTrack Project'
 
 # 默认数据目录（可迁移）
@@ -21,8 +21,9 @@ def _get_app_base_dir() -> Path:
 
 
 APP_BASE_DIR = _get_app_base_dir()
-CONFIG_FILE = APP_BASE_DIR / 'app_config.json'
-LEGACY_CONFIG_FILE = Path(os.getenv('APPDATA', str(Path.home()))) / f'{APP_NAME}Config' / 'app_config.json'
+APPDATA_CONFIG_DIR = Path(os.getenv('APPDATA', str(Path.home()))) / f'{APP_NAME}Config'
+CONFIG_FILE = APPDATA_CONFIG_DIR / 'app_config.json'
+LEGACY_CONFIG_FILE = APP_BASE_DIR / 'app_config.json'
 
 DAILY_PRIORITIES = ['高', '中', '低']
 DAILY_STATUSES = ['未开始', '进行中', '已完成', '已推迟', '已取消']
@@ -62,6 +63,7 @@ def _read_config(path: Path) -> dict | None:
 
 def load_path_config() -> PathConfig:
     ensure_dir(DEFAULT_DATA_ROOT)
+    ensure_dir(APPDATA_CONFIG_DIR)
 
     payload = _read_config(CONFIG_FILE)
     if payload is None:
@@ -78,5 +80,6 @@ def load_path_config() -> PathConfig:
 
 
 def save_path_config(config: PathConfig) -> None:
+    ensure_dir(APPDATA_CONFIG_DIR)
     payload = {'data_root_path': str(config.data_root)}
     CONFIG_FILE.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')

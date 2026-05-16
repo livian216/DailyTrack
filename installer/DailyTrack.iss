@@ -1,20 +1,24 @@
 #define MyAppName "DailyTrack"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.1.1"
 #define MyAppPublisher "DailyTrack Project"
 #define MyAppExeName "DailyTrack.exe"
+#define MyAppId "{{F3AE1DF5-EFC3-4D4D-9F72-EE184CF51A89}"
+#define MyAppIdReg "{F3AE1DF5-EFC3-4D4D-9F72-EE184CF51A89}"
 
 [Setup]
-AppId={{F3AE1DF5-EFC3-4D4D-9F72-EE184CF51A89}
+AppId={#MyAppId}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\DailyTrack
 DefaultGroupName=DailyTrack
 OutputDir=..\installer_output
-OutputBaseFilename=DailyTrack_Setup_v1.1.0
+OutputBaseFilename=DailyTrack_Setup_v1.1.1
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
+CloseApplications=yes
+RestartApplications=no
 
 [Languages]
 Name: "chinesesimp"; MessagesFile: "compiler:Default.isl"
@@ -33,6 +37,57 @@ Name: "{autodesktop}\DailyTrack"; Filename: "{app}\{#MyAppExeName}"; Tasks: desk
 Filename: "{app}\{#MyAppExeName}"; Description: "立即运行 DailyTrack"; Flags: nowait postinstall skipifsilent
 
 [Code]
+function TryGetExistingUninstaller(var UninstallerPath: string): Boolean;
+var
+  UninstallKey: string;
+  UninstallCmd: string;
+begin
+  Result := False;
+  UninstallerPath := '';
+  UninstallKey := 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#MyAppIdReg}_is1';
+
+  if not RegQueryStringValue(HKLM64, UninstallKey, 'UninstallString', UninstallCmd) then
+    if not RegQueryStringValue(HKLM, UninstallKey, 'UninstallString', UninstallCmd) then
+      if not RegQueryStringValue(HKCU, UninstallKey, 'UninstallString', UninstallCmd) then
+        Exit;
+
+  UninstallerPath := RemoveQuotes(UninstallCmd);
+  Result := (UninstallerPath <> '') and FileExists(UninstallerPath);
+end;
+
+function InitializeSetup(): Boolean;
+var
+  ExistingUninstaller: string;
+  ExecOk: Boolean;
+  ExitCode: Integer;
+begin
+  Result := True;
+
+  if TryGetExistingUninstaller(ExistingUninstaller) then
+  begin
+    ExecOk := Exec(
+      ExistingUninstaller,
+      '/VERYSILENT /NORESTART /SUPPRESSMSGBOXES',
+      '',
+      SW_HIDE,
+      ewWaitUntilTerminated,
+      ExitCode
+    );
+
+    if (not ExecOk) or (ExitCode <> 0) then
+    begin
+      MsgBox(
+        '检测到旧版本，但自动卸载失败或被取消。' + #13#10 +
+        '请先手动卸载旧版本后再安装新版本。',
+        mbError,
+        MB_OK
+      );
+      Result := False;
+      Exit;
+    end;
+  end;
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usUninstall then
