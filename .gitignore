@@ -74,6 +74,7 @@ backups/
 # -----------------------------
 # User documents / notes
 # -----------------------------
+docs/
 *.tmp
 *.bak
 *.orig

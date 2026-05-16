@@ -1,143 +1,129 @@
-# DailyTrack
+# DailyTrack v1.1.0
 
-DailyTrack 是一款面向个人用户的 Windows 本地任务管理软件，聚焦“今日执行 + 长线推进 + 每日复盘”的闭环。
-
-适合需要在本地持续追踪工作、学习、写作、项目推进进度的用户使用。
+DailyTrack 是一款面向个人用户的 Windows 本地任务管理软件，围绕「今日执行 + 长线推进 + 复盘沉淀」构建闭环。
 
 ## 产品定位
+- 本地单机：不依赖云端账号，不强制联网。
+- 轻量稳定：`Python + PySide6 + SQLite`。
+- 可安装即用：支持打包与安装，不要求用户安装 Python。
+- 数据可控：支持数据目录迁移、导出、备份。
 
-- 本地单机：不依赖云端账号，不强制联网
-- 轻量稳定：基于 Python + PySide6 + SQLite
-- 可安装即用：提供 Windows 安装包，普通用户无需安装 Python
-- 数据可控：支持自定义数据目录、导出与备份
+## v1.1.0 关键升级
+- 全局视觉系统重构：主题、样式、组件统一。
+- 导航与品牌升级：左侧品牌区、版本信息、SVG 图标体系。
+- 任务卡片化：今日待办/长线任务采用卡片信息流与选中悬浮反馈。
+- 新增历史页面：
+  - `任务回看`：按日期回看当天今日任务（含已完成、已推迟）。
+  - `归档任务`：查看归档长线任务，支持标题关键词搜索。
+- 行为优化：
+  - 今日任务“已完成”后从今日待办主列表隐藏（可在任务回看页查看）。
+  - 长线任务“已归档”后从长线任务主列表隐藏（可在归档任务页查看）。
+  - 今日任务“推迟到明天”会在次日复制一条新任务（今日原任务保留为已推迟）。
+- 乱码防线：文案常量集中管理、SVG 图标替换、编码巡检脚本。
 
 ## 核心功能
+### 1) 今天概览
+- 今日任务统计卡片（总数、已完成、未完成、完成率）
+- 今日完成进度
+- 看板分区（高优先级未完成、7 天内到期、已逾期）
 
-### 1. 首页总览
-- 今日任务总数、已完成、未完成、高优先级未完成统计卡片
-- 今日完成率进度条
-- 三类看板：
-  - 高优先级未完成
-  - 7天内到期任务
-  - 已逾期任务
-- 看板任务支持双击跳转到对应页面定位查看
+### 2) 今日待办
+- 新增/编辑/完成/推迟到明天/删除
+- 任务卡片展示：状态彩带、标签语义、元信息、快捷操作
 
-### 2. 今日待办
-- 新增 / 编辑 / 完成 / 推迟到明天 / 删除
-- 支持优先级、状态、预计耗时（小时+分钟）、备注
-- 长文本支持悬停 tooltip 查看完整内容
+### 3) 长线任务
+- 新增/编辑/归档/删除
+- 进度、开始/截止日期、剩余天数、逾期提示
+- 可生成今日任务
+- 阶段管理与进展日志（卡片化展示）
 
-### 3. 长线任务
-- 新增 / 编辑 / 归档 / 删除
-- 进度、开始日期、截止日期、逾期识别
-- 从长线任务生成今日任务
-- 阶段管理（增改删）
-- 进展日志（查看历史 + 新增）
+### 4) 任务回看
+- 手动输入日期（`YYYY-MM-DD`）查询当天今日任务
+- 历史任务卡片展示与选中悬浮反馈
 
-### 4. 每日复盘
-- 指定日期查看当日任务完成统计
-- 保存：今日总结、未完成原因、明日重点
-- 输入日期快速回看历史复盘
+### 5) 归档任务
+- 回看已归档长线任务
+- 按标题关键词搜索
 
-### 5. 设置与数据
-- 查看当前数据目录与数据库路径
-- 自定义数据目录迁移（支持迁移后清理旧目录）
-- 导出 JSON / CSV
+### 6) 每日复盘
+- 按日期加载统计
+- 保存今日总结、未完成原因、明日重点
+
+### 7) 设置/数据
+- 查看并迁移数据目录
+- 导出 JSON/CSV
 - 备份数据库
 
-## 技术栈
-
-- Python 3
-- PySide6
-- SQLite（sqlite3）
-- PyInstaller
-- Inno Setup
-
 ## 项目结构
-
 ```text
 DailyTrack/
-├── main.py
-├── requirements.txt
-├── dailytrack/
-│   ├── app.py
-│   ├── config.py
-│   ├── database.py
-│   ├── repositories/
-│   ├── services/
-│   └── ui/
-├── scripts/
-│   ├── setup_env.bat
-│   ├── run_dev.bat
-│   ├── build_exe.bat
-│   ├── build_installer.bat
-│   └── clean_build.bat
-├── installer/
-│   └── DailyTrack.iss
-└── docs/
+├─ main.py
+├─ requirements.txt
+├─ dailytrack/
+│  ├─ app.py
+│  ├─ config.py
+│  ├─ database.py
+│  ├─ repositories/
+│  ├─ services/
+│  └─ ui/
+├─ scripts/
+│  ├─ setup_env.bat
+│  ├─ run_dev.bat
+│  ├─ build_exe.bat
+│  ├─ build_installer.bat
+│  ├─ clean_build.bat
+│  └─ check_text_encoding.py
+├─ installer/
+│  └─ DailyTrack.iss
+└─ docs/
 ```
 
-## 快速开始（开发者）
-
-### 1) 创建环境并安装依赖
-
+## 开发启动
 ```bat
 scripts\setup_env.bat
-```
-
-### 2) 启动开发版
-
-```bat
 scripts\run_dev.bat
 ```
 
 ## 打包发布
-
 ### 1) 生成可执行目录（one-folder）
-
 ```bat
 scripts\build_exe.bat
 ```
-
 产物目录：
-
 ```text
 dist\DailyTrack\
 ```
 
-### 2) 生成安装包（需已安装 Inno Setup）
-
+### 2) 生成安装包（Inno Setup）
 ```bat
 scripts\build_installer.bat
 ```
-
 安装包输出：
-
 ```text
-installer_output\DailyTrack_Setup_v1.0.0.exe
+installer_output\DailyTrack_Setup_v1.1.0.exe
 ```
 
-## 普通用户安装方式
-
-1. 双击 `DailyTrack_Setup_v1.0.0.exe`
-2. 按安装向导完成安装
-3. 双击桌面 `DailyTrack` 图标
-4. 开始使用
+## 清理说明
+- 安全清理（默认，不删除打包产物）：
+```bat
+scripts\clean_build.bat
+```
+- 全量清理（包含 `dist/installer_output`）：
+```bat
+scripts\clean_build.bat --all
+```
 
 ## 数据与隐私
-
-- 用户数据默认保存在 `%APPDATA%\DailyTrack\`
-- 支持迁移到自定义目录
-- 卸载软件默认不删除用户数据目录
-- 建议卸载前先在软件内导出 JSON/CSV 并备份数据库
+- 默认数据目录：`%APPDATA%\DailyTrack\`
+- 卸载默认不删除用户数据目录
+- 建议卸载前先导出 JSON/CSV 并备份数据库
 
 ## 常见问题
+### Q1: 安装后左侧图标/Logo 不显示
+请确认使用最新 `build_exe.bat` 打包（已包含 SVG 资源收集参数）。
 
-### Q1: `ISCC.exe not found`
-请安装 Inno Setup，并将 `ISCC.exe` 所在目录加入 PATH。
+### Q2: `ISCC.exe not found`
+请安装 Inno Setup，并将 `ISCC.exe` 所在目录加入 `PATH`。
 
-### Q2: 切换数据目录后看不到数据
-请确认迁移成功提示并重启软件后再检查。
-
-### Q3: 文本太长显示不全
-可将鼠标悬停在单元格上查看完整内容 tooltip。
+### Q3: 打包时出现 `WinError 5`
+通常是目标 EXE 被占用。请关闭所有 `DailyTrack.exe` 后重试。

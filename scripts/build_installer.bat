@@ -12,4 +12,9 @@ if %errorlevel% neq 0 (
 )
 if not exist installer_output mkdir installer_output
 ISCC.exe installer\DailyTrack.iss
-echo [OK] Installer output: installer_output\DailyTrack_Setup_v1.0.0.exe
+if %errorlevel% neq 0 (
+  echo [ERROR] Inno Setup compile failed.
+  exit /b 1
+)
+echo [OK] Installer output: installer_output\DailyTrack_Setup_v1.1.0.exe
+

@@ -1,70 +1,72 @@
-# Development Notes
+# Development Notes (v1.1.0)
 
-## 1. 当前版本概览（MVP v1.0.0+）
-
-DailyTrack 当前已完成“本地任务闭环”能力：
-
-- 首页看板：统计卡片、完成率进度条、三类任务看板
-- 今日待办：增删改、完成、推迟到明天、来源追踪
-- 长线任务：进度管理、归档、阶段管理、进展日志、生成今日任务
-- 每日复盘：按日期统计、保存与回看
-- 设置数据：路径迁移、导出 JSON/CSV、数据库备份
+## 1. 当前版本概览
+DailyTrack v1.1.0 已完成从 v1.0.0 到产品化 UI 的二阶段升级：
+- 统一主题/样式/组件体系
+- 任务卡片化与悬浮交互反馈
+- 历史回看与归档检索页面
+- SVG 图标与品牌 Logo 体系
+- 文案与编码稳定性增强
 
 ## 2. 架构与分层
-
 - `repositories/`：SQLite CRUD
 - `services/`：业务规则与流程编排
-- `ui/`：PySide6 界面与交互
-- `utils/`：日期、文件处理
+- `ui/`：PySide6 界面、页面交互、卡片组件
+- `utils/`：日期、文件、通用辅助
+- 入口：`main.py -> dailytrack/app.py`
 
-主入口：
+## 3. 关键行为约定
+### 3.1 今日任务
+- 今日待办主页面默认显示“未完成/进行中/已推迟”等活动任务。
+- 状态为“已完成”的任务从今日待办主页面隐藏，但仍保留数据库记录，可在“任务回看”页面按日期查看。
+- 点击“推迟到明天”时：
+  - 原任务状态更新为“已推迟”（仍属于原日期）
+  - 自动在次日复制一条“未开始”任务
 
-- `main.py` -> `dailytrack/app.py`
+### 3.2 长线任务
+- 主页面默认显示非归档长线任务。
+- 状态为“已归档”的任务从主页面隐藏，进入“归档任务”页面查看与搜索。
 
-## 3. 数据与路径策略（最新版）
+### 3.3 历史与归档页面
+- `任务回看`：手动输入 `YYYY-MM-DD` 查询当日任务。
+- `归档任务`：按标题关键词检索归档长线任务。
 
-### 3.1 数据目录
+## 4. UI 与资源约定
+### 4.1 图标策略
+- 统一使用本地 SVG：`dailytrack/ui/resources/icons/`
+- 导航图标、品牌 Logo、窗口图标都从该目录加载。
 
-- 默认数据目录：`%APPDATA%\DailyTrack\`
-- 结构：
-  - `dailytrack.db`
-  - `backups/`
-  - `exports/`
+### 4.2 卡片交互
+- 卡片内部不额外加重边框装饰。
+- 通过“状态彩带 + 选中悬浮阴影”表达层级与焦点。
 
-### 3.2 配置文件位置（已调整）
-
-- 当前 `app_config.json` 放在**程序目录**（安装目录 / 开发根目录）：
-  - 打包后：`DailyTrack.exe` 同级目录
-  - 开发时：项目根目录
-
-### 3.3 路径切换行为
-
-- 切换到新目录时：
-  1. 迁移数据库与导出/备份目录
-  2. 新目录主库固定写为 `dailytrack.db`
-  3. 校验新库可读
-  4. 保存配置并提示重启
-  5. 尝试清理旧目录（剪切效果）
-
-## 4. UI 产品化改造摘要
-
-- 全局主题统一（字体、按钮、表头、背景）
-- 页面标题分层和配色
-- 优先级/状态颜色语义
-- 首页看板化展示
-- 表格内长文本 tooltip 完整展示
-- 首页看板任务支持双击跳转到对应页面并定位
+### 4.3 文案管理
+- 集中在 `dailytrack/ui/texts.py`，避免页面散落字符串造成编码漂移。
 
 ## 5. 打包与安装
+### 5.1 EXE 打包
+- 使用 `scripts/build_exe.bat`
+- 关键参数包含：
+  - `--add-data "dailytrack\ui\resources\icons;dailytrack\ui\resources\icons"`
+  - `--hidden-import PySide6.QtSvg`
+  - `--hidden-import PySide6.QtSvgWidgets`
 
-- PyInstaller 生成 `dist/DailyTrack/`
-- Inno Setup 生成 `installer_output/DailyTrack_Setup_v1.0.0.exe`
-- 卸载前弹窗提示：
-  - 建议先导出/备份数据
-  - 卸载清理安装目录
-  - 用户数据目录不自动删除
+### 5.2 安装包打包
+- 使用 `scripts/build_installer.bat`
+- 安装器脚本：`installer/DailyTrack.iss`
+- 当前版本产物名：`DailyTrack_Setup_v1.1.0.exe`
 
-## 6. 发布建议
+### 5.3 常见打包风险
+- `WinError 5`（资源写入失败）：通常是 `DailyTrack.exe` 被占用，需关闭进程后重试。
+- 安装器编译报错：需检查 `DailyTrack.iss` 字符串与编码是否完整。
 
-- 发布到 GitHub 时保留源码 + 安装包 `.exe`（可用于 Release）
-- 不提交本地数据库、导出、备份、虚拟环境、缓存文件
+## 6. 清理策略
+- 默认清理：`scripts/clean_build.bat`
+  - 清理 `build`、`__pycache__`、`*.pyc`、`*.spec`、测试临时文件
+  - 保留 `dist` 与 `installer_output`
+- 全量清理：`scripts/clean_build.bat --all`
+  - 在默认基础上清理 `dist` 与 `installer_output`
+
+## 7. 后续建议
+- 增加打包后自动校验资源存在的步骤（例如检查 `dist\DailyTrack\dailytrack\ui\resources\icons`）。
+- 增加轻量 UI 回归清单（导航图标、Logo、卡片交互、历史页检索）。

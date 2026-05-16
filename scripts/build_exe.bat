@@ -7,5 +7,9 @@ if not exist .venv\Scripts\activate (
 call .venv\Scripts\activate
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
-pyinstaller --noconfirm --clean --windowed --name DailyTrack main.py
+pyinstaller --noconfirm --clean --windowed --name DailyTrack ^
+  --add-data "dailytrack\ui\resources\icons;dailytrack\ui\resources\icons" ^
+  --hidden-import PySide6.QtSvg ^
+  --hidden-import PySide6.QtSvgWidgets ^
+  main.py
 echo [OK] Build output: dist\DailyTrack\

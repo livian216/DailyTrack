@@ -1,129 +1,232 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QFontMetrics
 from PySide6.QtWidgets import (
-    QHeaderView,
+    QFrame,
     QHBoxLayout,
     QLabel,
-    QMenu,
     QMessageBox,
-    QPushButton,
-    QTableWidget,
-    QTableWidgetItem,
+    QProgressBar,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
+from PySide6.QtWidgets import QGraphicsDropShadowEffect
 
 from dailytrack.services.task_service import TaskService
+from dailytrack.ui.components import ActionButton, EmptyState, PageHeader, PriorityBadge, SecondaryButton, StatusBadge
 from dailytrack.ui.dialogs import DailyTaskDialog, show_error
+from dailytrack.ui.texts import (
+    BTN_ADD_DAILY,
+    BTN_DELETE,
+    BTN_DONE,
+    BTN_EDIT,
+    BTN_POSTPONE,
+    BTN_REFRESH_LIST,
+    PAGE_DAILY,
+)
 from dailytrack.utils.date_utils import today_str
 
 
-PRIORITY_COLOR = {"高": "#dc2626", "中": "#d97706", "低": "#16a34a"}
-STATUS_COLOR = {"未开始": "#64748b", "进行中": "#2563eb", "已完成": "#16a34a", "已推迟": "#d97706", "已取消": "#6b7280"}
+class DailyTaskCard(QWidget):
+    def __init__(self, task: dict, page: 'DailyTasksPage', index: int):
+        super().__init__()
+        self.task = task
+        self.page = page
+        self.task_id = int(task['id'])
+        self._selected = False
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(2, 4, 2, 4)
+
+        card = QWidget()
+        card.setObjectName('DailyTaskCardShell')
+        self._card_bg = '#FFFFFF'
+        self.card = card
+        self._apply_card_style()
+
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        strip = QFrame()
+        strip.setFixedHeight(5)
+        status_color = {
+            '未开始': '#94A3B8',
+            '进行中': '#2F80ED',
+            '已完成': '#14B86A',
+            '已推迟': '#D97706',
+            '已取消': '#9CA3AF',
+        }.get(task.get('status', ''), '#94A3B8')
+        strip.setStyleSheet(f'background:{status_color};border-top-left-radius:14px;border-top-right-radius:14px;')
+        layout.addWidget(strip)
+
+        body = QWidget()
+        body_l = QVBoxLayout(body)
+        body_l.setContentsMargins(16, 12, 16, 14)
+        body_l.setSpacing(8)
+
+        top = QHBoxLayout()
+        title_label = QLabel()
+        title_label.setStyleSheet('font-size:16px;font-weight:700;color:#1F2937;')
+        fm = QFontMetrics(title_label.font())
+        full_title = task['title']
+        title_label.setText(fm.elidedText(full_title, Qt.ElideRight, 480))
+        title_label.setToolTip(full_title)
+        top.addWidget(title_label)
+        top.addStretch()
+        top.addWidget(PriorityBadge(task['priority']))
+        top.addWidget(StatusBadge(task['status']))
+        body_l.addLayout(top)
+
+        desc = task.get('description') or '暂无说明'
+        desc_label = QLabel()
+        desc_label.setStyleSheet('font-size:13px;color:#64748B;')
+        desc_label.setText(fm.elidedText(desc, Qt.ElideRight, 700))
+        desc_label.setToolTip(desc)
+        body_l.addWidget(desc_label)
+
+        meta = QLabel(
+            f"预计耗时：{task.get('estimated_minutes') or 0} 分钟    来源：{task.get('source_type') or 'manual'}    日期：{task.get('task_date') or '-'}"
+        )
+        meta.setStyleSheet('font-size:12px;color:#6B7280;')
+        body_l.addWidget(meta)
+
+        actions = QHBoxLayout()
+        edit_btn = SecondaryButton(BTN_EDIT)
+        edit_btn.clicked.connect(lambda: page.edit_task(int(task['id'])))
+        quick_done = SecondaryButton(BTN_DONE)
+        quick_done.clicked.connect(lambda: page.complete(int(task['id'])))
+        postpone_btn = SecondaryButton(BTN_POSTPONE)
+        postpone_btn.clicked.connect(lambda: page.postpone(int(task['id'])))
+        delete_btn = SecondaryButton(BTN_DELETE)
+        delete_btn.setProperty('variant', 'danger')
+        delete_btn.style().polish(delete_btn)
+        delete_btn.clicked.connect(lambda: page.delete(int(task['id'])))
+
+        actions.addWidget(edit_btn)
+        actions.addWidget(quick_done)
+        actions.addWidget(postpone_btn)
+        actions.addWidget(delete_btn)
+        actions.addStretch()
+        body_l.addLayout(actions)
+        layout.addWidget(body)
+
+        root.addWidget(card)
+
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+        self.page.select_card(self.task_id)
+
+    def _apply_card_style(self) -> None:
+        border = '1px solid #D5E2DC' if self._selected else '1px solid #E6EFEB'
+        self.card.setStyleSheet(
+            f'#DailyTaskCardShell{{background:{self._card_bg};border:{border};border-radius:14px;}}'
+        )
+
+    def set_selected(self, selected: bool) -> None:
+        self._selected = selected
+        self._apply_card_style()
+        if selected:
+            effect = QGraphicsDropShadowEffect(self)
+            effect.setBlurRadius(38)
+            effect.setOffset(0, 12)
+            effect.setColor(QColor(16, 24, 40, 88))
+            self.card.setGraphicsEffect(effect)
+        else:
+            self.card.setGraphicsEffect(None)
 
 
 class DailyTasksPage(QWidget):
     def __init__(self, task_service: TaskService):
         super().__init__()
         self.task_service = task_service
+        self.task_cards: list[DailyTaskCard] = []
+
         root = QVBoxLayout(self)
+        root.setContentsMargins(20, 20, 20, 20)
+        root.setSpacing(14)
 
-        title = QLabel("今日任务")
-        title.setStyleSheet("font-size:20px;font-weight:700;color:#0f4fa8;")
-        root.addWidget(title)
+        self.header = PageHeader(PAGE_DAILY, '聚焦今天要完成的任务')
+        self.add_btn = ActionButton(BTN_ADD_DAILY)
+        self.refresh_btn = SecondaryButton(BTN_REFRESH_LIST)
+        self.rate_label = QLabel('今日完成率：0%')
+        self.rate_label.setProperty('role', 'page-subtitle')
+        self.header.actions.addWidget(self.rate_label)
+        self.header.add_action(self.refresh_btn)
+        self.header.add_action(self.add_btn)
+        root.addWidget(self.header)
 
-        top = QHBoxLayout()
-        self.add_btn = QPushButton("新增今日任务")
-        self.refresh_btn = QPushButton("刷新列表")
-        self.rate_label = QLabel("今日完成率：0%")
-        self.rate_label.setStyleSheet("font-weight:700;color:#0f4fa8;")
-        top.addWidget(self.add_btn)
-        top.addWidget(self.refresh_btn)
-        top.addWidget(self.rate_label)
-        top.addStretch()
-        root.addLayout(top)
+        progress_wrap = QWidget()
+        progress_l = QHBoxLayout(progress_wrap)
+        progress_l.setContentsMargins(0, 0, 0, 0)
+        progress_l.setSpacing(10)
+        self.progress = QProgressBar()
+        self.progress.setRange(0, 100)
+        self.progress.setFormat('%p%')
+        progress_l.addWidget(self.progress)
+        root.addWidget(progress_wrap)
 
-        self.table = QTableWidget(0, 9)
-        self.table.setHorizontalHeaderLabels(["ID", "标题", "备注", "优先级", "状态", "耗时(分钟)", "来源", "日期", "操作"])
-        self.table.setWordWrap(True)
-        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(8, QHeaderView.ResizeToContents)
-        self.table.verticalHeader().setDefaultSectionSize(56)
-        root.addWidget(self.table)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.NoFrame)
+        self.scroll_host = QWidget()
+        self.scroll_layout = QVBoxLayout(self.scroll_host)
+        self.scroll_layout.setContentsMargins(8, 8, 8, 8)
+        self.scroll_layout.setSpacing(14)
+        self.scroll.setWidget(self.scroll_host)
+        root.addWidget(self.scroll)
+
+        self.empty_state = EmptyState('今天还没有待办事项', '点击“新增今日任务”开始规划今天的工作。')
+        root.addWidget(self.empty_state)
+        self.empty_state.hide()
 
         self.add_btn.clicked.connect(self.add_task)
         self.refresh_btn.clicked.connect(self.refresh)
         self.refresh()
 
-    def _item(self, value: str, color: str | None = None) -> QTableWidgetItem:
-        item = QTableWidgetItem(value)
-        item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        if value:
-            item.setToolTip(value)
-        if color:
-            item.setForeground(QColor(color))
-        return item
-
-    def _set_ops(self, row: int, task_id: int) -> None:
-        btn = QPushButton("操作")
-
-        def show_menu():
-            menu = QMenu(btn)
-            a1 = menu.addAction("编辑")
-            a2 = menu.addAction("完成")
-            a3 = menu.addAction("推迟到明天")
-            a4 = menu.addAction("删除")
-            picked = menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
-            if picked == a1:
-                self.edit_task(task_id)
-            elif picked == a2:
-                self.complete(task_id)
-            elif picked == a3:
-                self.postpone(task_id)
-            elif picked == a4:
-                self.delete(task_id)
-
-        btn.clicked.connect(show_menu)
-        self.table.setCellWidget(row, 8, btn)
-
     def refresh(self) -> None:
         try:
-            tasks = self.task_service.list_tasks_for_date(today_str())
-            self.table.setRowCount(len(tasks))
+            tasks = [x for x in self.task_service.list_tasks_for_date(today_str()) if x.get('status') != '已完成']
+            self.task_cards.clear()
+
+            while self.scroll_layout.count():
+                item = self.scroll_layout.takeAt(0)
+                widget = item.widget()
+                if widget:
+                    widget.deleteLater()
+
             done = 0
-            for r, t in enumerate(tasks):
-                self.table.setItem(r, 0, self._item(str(t["id"])))
-                self.table.setItem(r, 1, self._item(t["title"]))
-                self.table.setItem(r, 2, self._item(t.get("description") or ""))
-                self.table.setItem(r, 3, self._item(t["priority"], PRIORITY_COLOR.get(t["priority"])))
-                self.table.setItem(r, 4, self._item(t["status"], STATUS_COLOR.get(t["status"])))
-                self.table.setItem(r, 5, self._item(str(t.get("estimated_minutes") or "")))
-                self.table.setItem(r, 6, self._item(t.get("source_type") or "manual"))
-                self.table.setItem(r, 7, self._item(t["task_date"]))
-                self._set_ops(r, int(t["id"]))
-                self.table.resizeRowToContents(r)
-                if t["status"] == "已完成":
+            for idx, task in enumerate(tasks):
+                card = DailyTaskCard(task, self, idx)
+                self.task_cards.append(card)
+                self.scroll_layout.addWidget(card)
+                if task['status'] == '已完成':
                     done += 1
+            self.scroll_layout.addStretch()
+
             total = len(tasks)
             rate = 0 if total == 0 else round(done / total * 100, 1)
-            self.rate_label.setText(f"今日完成率：{rate}%")
+            self.rate_label.setText(f'今日完成率：{rate}% · 任务数：{total}')
+            self.progress.setValue(int(rate))
+
+            has_data = total > 0
+            self.scroll.setVisible(has_data)
+            self.empty_state.setVisible(not has_data)
         except Exception as exc:
             show_error(self, str(exc))
 
     def focus_task(self, task_id: int) -> None:
-        for row in range(self.table.rowCount()):
-            item = self.table.item(row, 0)
-            if item and item.text() == str(task_id):
-                self.table.selectRow(row)
-                self.table.scrollToItem(item, QTableWidget.PositionAtCenter)
-                return
+        self.refresh()
+        self.select_card(task_id)
+
+    def select_card(self, task_id: int) -> None:
+        for card in self.task_cards:
+            card.set_selected(card.task_id == int(task_id))
 
     def add_task(self) -> None:
-        dlg = DailyTaskDialog(self, {"task_date": today_str(), "status": "未开始"})
+        dlg = DailyTaskDialog(self, {'task_date': today_str(), 'status': '未开始'})
         if dlg.exec():
             try:
                 self.task_service.create_daily_task(dlg.payload())
@@ -158,7 +261,7 @@ class DailyTasksPage(QWidget):
             show_error(self, str(exc))
 
     def delete(self, task_id: int) -> None:
-        if QMessageBox.question(self, "确认删除", "确定删除这条今日任务吗？") != QMessageBox.Yes:
+        if QMessageBox.question(self, '确认删除', '确定删除这条今日任务吗？') != QMessageBox.Yes:
             return
         try:
             self.task_service.delete_daily_task(task_id)

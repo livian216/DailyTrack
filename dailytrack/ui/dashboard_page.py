@@ -1,37 +1,15 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Callable
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (
-    QFrame,
-    QGridLayout,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QListWidget,
-    QListWidgetItem,
-    QPushButton,
-    QProgressBar,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtGui import QFontMetrics
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QProgressBar, QVBoxLayout, QWidget
 
 from dailytrack.services.dashboard_service import DashboardService
-
-
-class StatCard(QFrame):
-    def __init__(self, title: str, color: str):
-        super().__init__()
-        self.setFrameShape(QFrame.StyledPanel)
-        self.setStyleSheet("QFrame{border:1px solid #dbe1e7;border-radius:10px;background:#ffffff;}")
-        layout = QVBoxLayout(self)
-        self.title = QLabel(title)
-        self.title.setStyleSheet("color:#64748b;font-size:12px;")
-        self.value = QLabel("-")
-        self.value.setStyleSheet(f"font-size:28px;font-weight:700;color:{color};")
-        layout.addWidget(self.title)
-        layout.addWidget(self.value)
+from dailytrack.ui.components import ActionButton, EmptyState, MetricCard, PageHeader, SectionCard, SecondaryButton
+from dailytrack.ui.texts import BOARD_HIGH, BOARD_OVERDUE, BOARD_UPCOMING, BTN_REFRESH_STATS, PAGE_DASHBOARD
 
 
 class DashboardPage(QWidget):
@@ -47,56 +25,48 @@ class DashboardPage(QWidget):
         self.open_long_task = open_long_task
 
         root = QVBoxLayout(self)
-        header = QHBoxLayout()
-        self.title = QLabel("首页总览")
-        self.title.setStyleSheet("font-size:22px;font-weight:700;color:#0f4fa8;")
-        self.date_label = QLabel("")
-        self.date_label.setStyleSheet("color:#64748b;font-size:13px;")
-        self.refresh_btn = QPushButton("刷新统计")
+        root.setContentsMargins(20, 20, 20, 20)
+        root.setSpacing(16)
+
+        self.header = PageHeader(PAGE_DASHBOARD, '快速了解今天进度与长线任务风险')
+        self.date_label = QLabel('')
+        self.date_label.setProperty('role', 'page-subtitle')
+        self.refresh_btn = SecondaryButton(BTN_REFRESH_STATS)
         self.refresh_btn.clicked.connect(self.refresh)
-        header.addWidget(self.title)
-        header.addWidget(self.date_label)
-        header.addStretch()
-        header.addWidget(self.refresh_btn)
-        root.addLayout(header)
+        self.header.actions.addWidget(self.date_label)
+        self.header.add_action(self.refresh_btn)
+        root.addWidget(self.header)
 
         cards = QGridLayout()
-        self.total_card = StatCard("今日任务总数", "#0f4fa8")
-        self.done_card = StatCard("已完成", "#16a34a")
-        self.pending_card = StatCard("未完成", "#f59e0b")
-        self.high_card = StatCard("高优先级未完成", "#dc2626")
+        cards.setSpacing(12)
+        self.total_card = MetricCard('今日任务总数', '-', '今日计划事项')
+        self.done_card = MetricCard('已完成', '-', '完成数量')
+        self.pending_card = MetricCard('未完成', '-', '待处理数量')
+        self.rate_card = MetricCard('完成率', '0%', '完成效率')
         cards.addWidget(self.total_card, 0, 0)
         cards.addWidget(self.done_card, 0, 1)
         cards.addWidget(self.pending_card, 0, 2)
-        cards.addWidget(self.high_card, 0, 3)
+        cards.addWidget(self.rate_card, 0, 3)
         root.addLayout(cards)
 
-        rate_box = QGroupBox("今日完成率")
-        rate_layout = QVBoxLayout(rate_box)
+        progress_card = SectionCard('今日完成进度')
         self.rate_bar = QProgressBar()
         self.rate_bar.setRange(0, 100)
-        self.rate_text = QLabel("0%")
-        self.rate_text.setAlignment(Qt.AlignRight)
-        self.rate_text.setStyleSheet("font-weight:700;color:#0f4fa8;")
-        rate_layout.addWidget(self.rate_bar)
-        rate_layout.addWidget(self.rate_text)
-        root.addWidget(rate_box)
+        self.rate_bar.setFormat('%p%')
+        progress_card.body_layout.addWidget(self.rate_bar)
+        root.addWidget(progress_card)
 
-        boards = QHBoxLayout()
-        self.high_list = QListWidget()
-        self.upcoming_list = QListWidget()
-        self.overdue_list = QListWidget()
-        for title, lst in [
-            ("高优先级未完成（双击跳转）", self.high_list),
-            ("7天内到期任务（双击跳转）", self.upcoming_list),
-            ("已逾期任务（双击跳转）", self.overdue_list),
-        ]:
-            box = QGroupBox(title)
-            lay = QVBoxLayout(box)
-            lay.addWidget(lst)
-            boards.addWidget(box)
-        root.addLayout(boards)
-        root.addStretch()
+        board = QHBoxLayout()
+        board.setSpacing(12)
+
+        self.high_box, self.high_list = self._build_task_board(BOARD_HIGH)
+        self.upcoming_box, self.upcoming_list = self._build_task_board(BOARD_UPCOMING)
+        self.overdue_box, self.overdue_list = self._build_task_board(BOARD_OVERDUE)
+
+        board.addWidget(self.high_box)
+        board.addWidget(self.upcoming_box)
+        board.addWidget(self.overdue_box)
+        root.addLayout(board)
 
         self.high_list.itemDoubleClicked.connect(self._open_high_item)
         self.upcoming_list.itemDoubleClicked.connect(self._open_long_item)
@@ -104,40 +74,73 @@ class DashboardPage(QWidget):
 
         self.refresh()
 
+    def _build_task_board(self, title: str):
+        box = SectionCard(title)
+        task_list = QListWidget()
+        task_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        task_list.setStyleSheet(
+            'QListWidget{border:none;background:transparent;outline:0;}'
+            'QListWidget::item{padding:8px;border-radius:8px;border:1px solid #EAF5EE;background:#FFFFFF;color:#1F2937;}'
+            'QListWidget::item:selected{background:#EAF7FF;color:#1F2937;border:1px solid #D7EEF9;}'
+            'QListWidget::item:hover{background:#F3FBF8;color:#1F2937;border:1px solid #D7EEF9;}'
+            'QListWidget::item:focus{outline:none;}'
+        )
+        box.body_layout.addWidget(task_list)
+        return box, task_list
+
     def _fill_list(self, widget: QListWidget, items: list[dict], formatter, target: str) -> None:
         widget.clear()
         if not items:
-            empty = QListWidgetItem("无")
-            empty.setData(Qt.UserRole, None)
-            widget.addItem(empty)
+            widget.addItem(QListWidgetItem('暂无数据'))
             return
-        for x in items[:20]:
-            item = QListWidgetItem(formatter(x))
-            item.setData(Qt.UserRole, {"target": target, "id": int(x["id"])})
+        for idx, row in enumerate(items[:20]):
+            full_text = formatter(row)
+            metrics = QFontMetrics(widget.font())
+            # Keep list rows single-line and readable; reveal full text by tooltip.
+            short_text = metrics.elidedText(full_text, Qt.ElideRight, max(widget.viewport().width() - 24, 120))
+            item = QListWidgetItem(short_text)
+            item.setToolTip(full_text)
+            item.setBackground(QColor('#FFFFFF' if idx % 2 == 0 else '#F8FFFB'))
+            item.setData(Qt.UserRole, {'target': target, 'id': int(row['id'])})
             widget.addItem(item)
 
     def _open_high_item(self, item: QListWidgetItem) -> None:
         data = item.data(Qt.UserRole)
         if not data or not self.open_daily_task:
             return
-        self.open_daily_task(int(data["id"]))
+        self.open_daily_task(int(data['id']))
 
     def _open_long_item(self, item: QListWidgetItem) -> None:
         data = item.data(Qt.UserRole)
         if not data or not self.open_long_task:
             return
-        self.open_long_task(int(data["id"]))
+        self.open_long_task(int(data['id']))
 
     def refresh(self) -> None:
-        s = self.dashboard_service.today_stats()
-        self.date_label.setText(f"日期：{s['date']}")
-        self.total_card.value.setText(str(s["total"]))
-        self.done_card.value.setText(str(s["done"]))
-        self.pending_card.value.setText(str(s["pending"]))
-        self.high_card.value.setText(str(len(s["high_priority"])))
-        self.rate_bar.setValue(int(s["rate"]))
-        self.rate_text.setText(f"{s['rate']}%")
+        stats = self.dashboard_service.today_stats()
+        self.date_label.setText(f"日期：{stats['date']}")
 
-        self._fill_list(self.high_list, s["high_priority"], lambda x: f"{x['title']}（{x['status']}）", "daily")
-        self._fill_list(self.upcoming_list, s["upcoming"], lambda x: f"{x['title']} | 截止 {x.get('due_date') or '-'}", "long")
-        self._fill_list(self.overdue_list, s["overdue"], lambda x: f"{x['title']} | 截止 {x.get('due_date') or '-'}", "long")
+        self.total_card.set_value(str(stats['total']))
+        self.done_card.set_value(str(stats['done']))
+        self.pending_card.set_value(str(stats['pending']))
+        self.rate_card.set_value(f"{stats['rate']}%")
+        self.rate_bar.setValue(int(stats['rate']))
+
+        self._fill_list(
+            self.high_list,
+            stats['high_priority'],
+            lambda x: f"{x['title']} · {x['status']}",
+            'daily',
+        )
+        self._fill_list(
+            self.upcoming_list,
+            stats['upcoming'],
+            lambda x: f"{x['title']} · 截止 {x.get('due_date') or '-'}",
+            'long',
+        )
+        self._fill_list(
+            self.overdue_list,
+            stats['overdue'],
+            lambda x: f"{x['title']} · 截止 {x.get('due_date') or '-'}",
+            'long',
+        )
